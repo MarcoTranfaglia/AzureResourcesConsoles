@@ -1,0 +1,42 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.7.34003.232
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CheckAdb2cUser", "CheckAdb2cUser\CheckAdb2cUser.csproj", "{6BCF94C6-031B-4378-94F9-F610A48DD5D5}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CheckStorageAccountAccess", "CheckStorageAccountAccess\CheckStorageAccountAccess.csproj", "{8A8984EE-1D95-4E98-A442-816A5A2C0DFA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CosmosDocumentsManager", "CosmosDocumentsManager\CosmosDocumentsManager.csproj", "{670605A6-CD8E-4EDC-907E-47B631ED5145}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{37BAB84A-1A68-419B-914A-DE3ACA0002FE}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6BCF94C6-031B-4378-94F9-F610A48DD5D5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6BCF94C6-031B-4378-94F9-F610A48DD5D5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6BCF94C6-031B-4378-94F9-F610A48DD5D5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6BCF94C6-031B-4378-94F9-F610A48DD5D5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8A8984EE-1D95-4E98-A442-816A5A2C0DFA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8A8984EE-1D95-4E98-A442-816A5A2C0DFA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8A8984EE-1D95-4E98-A442-816A5A2C0DFA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8A8984EE-1D95-4E98-A442-816A5A2C0DFA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{670605A6-CD8E-4EDC-907E-47B631ED5145}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{670605A6-CD8E-4EDC-907E-47B631ED5145}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{670605A6-CD8E-4EDC-907E-47B631ED5145}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{670605A6-CD8E-4EDC-907E-47B631ED5145}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D7CF3FEC-946E-4404-AD2F-C596DB96F07E}
+	EndGlobalSection
+EndGlobal
