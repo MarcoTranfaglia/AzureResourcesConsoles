@@ -2,7 +2,7 @@
 
 namespace CosmosDocumentsManager.Handlers;
 
-public class ConcreteHandler : AbstractHandler
+public class UserHandler : AbstractHandler
 {
     public override string GetQuery() => "SELECT * FROM c";
 

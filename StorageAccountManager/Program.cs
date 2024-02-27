@@ -17,10 +17,10 @@ internal class Program
         string containerName = config["StorageAccount:ContainerName"];
         string fullUriWithSas = config["StorageAccount:FullUriSas"];
 
-        if (fullUriWithSas == null)
+        if (string.IsNullOrEmpty(fullUriWithSas))
         {
-            Debug.Assert(connectionString != null);
-            Debug.Assert(containerName != null);
+            Debug.Assert(connectionString == null);
+            Debug.Assert(containerName == null);
         }
         else
         {
@@ -31,6 +31,26 @@ internal class Program
 
         BlobContainerClient containerClient = await serviceClient.CreateBlobContainerAsync(containerName);
 
+        string operation = config["Operation"];
+
+        switch (operation)
+        {
+            case "CheckAccess":
+                if (fullUriWithSas is not null)
+                    await TestSasAccessAsync(fullUriWithSas, testWriteAndDelete: true, testList: true);
+                else
+                    await TestAccessAsync(containerClient, testWriteAndDelete: true, testList: true);
+
+                break;
+
+            case "DownloadAllBlobsFromContainer":
+                await DownloadAllFilesAsync(containerClient, containerName);
+                break;
+
+            default:
+                throw new Exception("No valid operation selected");
+        }
+
         if (fullUriWithSas is not null)
             await TestSasAccessAsync(fullUriWithSas, testWriteAndDelete: true, testList: true);
         else
@@ -38,6 +58,26 @@ internal class Program
 
 
         Console.ReadLine();
+    }
+
+
+    private static async Task DownloadAllFilesAsync(BlobContainerClient containerClient, string containerName)
+    {
+        try
+        {
+            var blobs = containerClient.GetBlobs();
+
+            foreach (var blob in blobs)
+            {
+                var blobClient = containerClient.GetBlobClient(blob.Name);
+                await blobClient.DownloadToAsync($@".\output\{blob.Name}");
+
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new Exception("Error downloading blob file", ex);
+        }
     }
 
     private static async Task TestSasAccessAsync(String uri, bool testWriteAndDelete, bool testList)
