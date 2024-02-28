@@ -36,8 +36,6 @@ public class UserHandler : AbstractHandler
                     d.SetPropertyValue("status", "Suspended");
 
                 break;
-            default:
-                return null;
         }
 
         return d;
