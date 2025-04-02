@@ -1,6 +1,6 @@
-﻿using Microsoft.Azure.Documents;
-using Microsoft.Azure.Documents.Client;
-using Microsoft.Azure.Documents.Linq;
+﻿using CosmosDocumentsManager.Handlers;
+using CosmosDocumentsManager.Models;
+using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Configuration;
 using System.Diagnostics;
 
@@ -18,11 +18,9 @@ internal class Program
         Stopwatch stopwatch = new Stopwatch();
         stopwatch.Start();
 
-        string endpointUri = _config["EndpointUri"].ToString();
-        string primaryKey = _config["PrimaryKey"].ToString();
-        string dbName = _config["DB"].ToString();
+        string accountEndpoint = _config["AccountEndpoint"].ToString();
+        string databaseName = _config["DatabaseName"].ToString();
 
-        string handlername = _config["HandlerName"];
         string inputCollection = _config["InputCollection"];
         string outputCollection = _config["OutputCollection"];
 
@@ -32,70 +30,62 @@ internal class Program
         bool dryRun = _config.GetValue<bool>("DryRun", true);
         int maxItemCount = _config.GetValue<int>("MaxItemCount", 20);
         int maxNumberOfThreads = _config.GetValue<int>("MaxNumberOfThreads", 1);
-        OperationType operation = _config.GetValue<OperationType>("OperationType", OperationType.EditDocument);
+        OperationType operation = _config.GetValue<OperationType>("OperationType", OperationType.EditDocuments);
 
-        using AbstractHandler handler = GetHandlerInstance("UserHandler");
-        handler.SetConfig(_config);
+        TimesheetHandler handler = new TimesheetHandler();
+        handler.InputCollection = inputCollection;
 
-        DocumentClient client = new DocumentClient(new Uri(endpointUri), primaryKey);
+        CosmosClient client = new(connectionString: accountEndpoint);
+        Database database = client.GetDatabase(databaseName);
+        Container container = database.GetContainer(inputCollection);
 
-        IDocumentQuery<Document> query = client.CreateDocumentQuery<Document>(
-            UriFactory.CreateDocumentCollectionUri(dbName, inputCollection),
-            handler.GetQuery(),
-            new FeedOptions
+        FeedIterator<Timesheet> query = container.GetItemQueryIterator<Timesheet>(
+            queryDefinition: new QueryDefinition(handler.GetQuery()),
+            requestOptions: new QueryRequestOptions
             {
-                MaxItemCount = maxItemCount,
-                MaxDegreeOfParallelism = -1,
-                EnableCrossPartitionQuery = true,
-                PopulateQueryMetrics = true
-            })
-            .AsDocumentQuery();
+                MaxItemCount = maxItemCount
+            });
 
         int documentWrites = 0, totalDocuments = 0;
 
-        if (dryRun)
-            Console.WriteLine("DRY RUN");
-
         Console.WriteLine("BEGIN PROCESSING");
+        Console.WriteLine($"Operation: {operation}");
+        Console.WriteLine($"DryRun: {dryRun}");
+        Console.WriteLine($"Collection: {inputCollection}");
+        Console.WriteLine($"Query: {handler.GetQuery()}");
+
         while (query.HasMoreResults)
         {
-            Console.WriteLine("Quering");
-            FeedResponse<Document> documents = await query.ExecuteNextAsync<Document>();
-            Console.WriteLine("End query");
+            FeedResponse<Timesheet> documents = await query.ReadNextAsync();
+            Console.WriteLine($"Number of documents: {documents.Count}");
 
             await Parallel.ForEachAsync(
                 documents,
-                new ParallelOptions { MaxDegreeOfParallelism = _config.GetValue<int>("MaxNumberOfThreads") },
+                new ParallelOptions { MaxDegreeOfParallelism = maxNumberOfThreads },
                 async (document, cancellationToken) =>
                 {
                     try
                     {
-                        (string partitionKey, string etag) = AbstractHandler.GetAdditionalData(document);
-
-
                         switch (operation)
                         {
-                            case OperationType.EditDocument:
-                                Document editedDoc = handler.ManageDocument(document);
+                            case OperationType.EditDocuments:
+                                CosmosItem editedDoc = handler.ManageDocument(document);
 
                                 if (editedDoc != null)
                                 {
                                     if (!dryRun)
                                     {
-                                        await client.ReplaceDocumentAsync(documentUri: UriFactory.CreateDocumentUri(databaseId: dbName,
-                                                                                                                    collectionId: outputCollection,
-                                                                                                                    documentId: editedDoc.Id),
-                                                                          document: editedDoc,
-                                                                          options: new RequestOptions
-                                                                          {
-                                                                              PartitionKey = new PartitionKey(partitionKey),
-                                                                              AccessCondition = new AccessCondition
-                                                                              {
-                                                                                  Condition = etag,
-                                                                                  Type = AccessConditionType.IfMatch
-                                                                              }
-                                                                          },
-                                                                          cancellationToken: cancellationToken);
+                                        // If there is a new partition key we have to delete the old and add a new one
+                                        if (editedDoc.PartitionKey != document.PartitionKey)
+                                        {
+                                            await container.DeleteItemAsync<CosmosItem>(document.Id.ToString(), new PartitionKey(document.PartitionKey));
+
+                                            await container.UpsertItemAsync(editedDoc, new PartitionKey(editedDoc.PartitionKey));
+                                        }
+                                        else
+                                        {
+                                            await container.UpsertItemAsync(editedDoc, new PartitionKey(editedDoc.PartitionKey));
+                                        }
                                     }
 
                                     Interlocked.Increment(ref documentWrites);
@@ -103,25 +93,10 @@ internal class Program
 
                                 break;
 
-                            case OperationType.DeleteDocument:
+                            case OperationType.DeleteDocuments:
                                 if (!dryRun)
                                 {
-                                    var item = await client.DeleteDocumentAsync(documentUri: UriFactory.CreateDocumentUri(databaseId: dbName,
-                                                                                                                          collectionId: outputCollection,
-                                                                                                                          documentId: document.Id),
-                                                                                options: new RequestOptions
-                                                                                {
-                                                                                    PartitionKey = new PartitionKey(partitionKey),
-                                                                                    AccessCondition = new AccessCondition
-                                                                                    {
-                                                                                        Condition = etag,
-                                                                                        Type = AccessConditionType.IfMatch
-                                                                                    }
-                                                                                },
-                                                                                cancellationToken: cancellationToken);
-
-                                    if (item is not null)
-                                        throw new Exception($"Cannot delete {document.Id}");
+                                    await container.DeleteItemAsync<CosmosItem>(document.Id.ToString(), new PartitionKey(document.PartitionKey));
                                 }
 
                                 break;
@@ -152,16 +127,12 @@ internal class Program
         Console.WriteLine();
     }
 
-    public static AbstractHandler GetHandlerInstance(string handlerName)
-    {
-        Type t = Type.GetType($"CosmosDocumentsManager.Handlers.{handlerName}");
-        return (AbstractHandler)Activator.CreateInstance(t);
-    }
 
     public enum OperationType
     {
-        EditDocument,
-        DeleteDocument
+        EditDocuments,
+        DeleteDocuments
     }
+
 
 }
